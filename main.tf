@@ -129,7 +129,7 @@ resource "aws_security_group" "nat_gw_sg" {
         from_port = 22
         to_port = 22
         protocol = "tcp"
-        cidr_blocks = ["${var.vpc_cidr}"]
+        cidr_blocks = ["${var.cidr}"]
     }
 }
 

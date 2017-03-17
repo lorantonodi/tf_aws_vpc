@@ -39,7 +39,7 @@ output "nat_eips_public_ips" {
 }
 
 output "natgw_ids" {
-  value = ["${aws_nat_gateway.natgw.*.id}"]
+  value = ["${aws_instance.nat-gw.*.id}"]
 }
 
 output "igw_id" {
