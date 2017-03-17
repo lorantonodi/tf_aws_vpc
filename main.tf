@@ -25,7 +25,7 @@ resource "aws_route" "public_internet_gateway" {
 resource "aws_route" "private_nat_gateway" {
   route_table_id         = "${element(aws_route_table.private.*.id, count.index)}"
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = "${element(aws_nat_gateway.natgw.*.id, count.index)}"
+  instance_id         = "${element(aws_instance.nat-gw.*.id, count.index)}"
   count                  = "${length(var.private_subnets) * lookup(map(var.enable_nat_gateway, 1), "true", 0)}"
 }
 
@@ -75,13 +75,71 @@ resource "aws_eip" "nateip" {
   count = "${length(var.private_subnets) * lookup(map(var.enable_nat_gateway, 1), "true", 0)}"
 }
 
-resource "aws_nat_gateway" "natgw" {
-  allocation_id = "${element(aws_eip.nateip.*.id, count.index)}"
-  subnet_id     = "${element(aws_subnet.public.*.id, count.index)}"
+resource "aws_instance" "nat-gw" {
+  ami = "ami-47ecb121"
+  instance_type = "t2.micro"
+  vpc_security_group_ids = [ "${aws_security_group.nat_gw_sg.id}" ]
+  subnet_id = "${element(aws_subnet.public.*.id, count.index)}"
+  associate_public_ip_address = true
+  source_dest_check = false
   count         = "${length(var.private_subnets) * lookup(map(var.enable_nat_gateway, 1), "true", 0)}"
-
-  depends_on = ["aws_internet_gateway.mod"]
 }
+
+
+resource "aws_security_group" "nat_gw_sg" {
+  vpc_id = "${aws_vpc.mod.id}"
+  ingress {
+        from_port = 80
+        to_port = 80
+        protocol = "tcp"
+        cidr_blocks = ["${var.private_subnets}"]
+    }
+    ingress {
+        from_port = 443
+        to_port = 443
+        protocol = "tcp"
+        cidr_blocks = ["${var.private_subnets}"]
+    }
+    ingress {
+        from_port = 22
+        to_port = 22
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    ingress {
+        from_port = -1
+        to_port = -1
+        protocol = "icmp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    egress {
+        from_port = 80
+        to_port = 80
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    egress {
+        from_port = 443
+        to_port = 443
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    egress {
+        from_port = 22
+        to_port = 22
+        protocol = "tcp"
+        cidr_blocks = ["${var.vpc_cidr}"]
+    }
+}
+
+//resource "aws_nat_gateway" "natgw" {
+//  allocation_id = "${element(aws_eip.nateip.*.id, count.index)}"
+//  subnet_id     = "${element(aws_subnet.public.*.id, count.index)}"
+//  count         = "${length(var.private_subnets) * lookup(map(var.enable_nat_gateway, 1), "true", 0)}"
+
+//  depends_on = ["aws_internet_gateway.mod"]
+//}
 
 resource "aws_route_table_association" "private" {
   count          = "${length(var.private_subnets)}"
